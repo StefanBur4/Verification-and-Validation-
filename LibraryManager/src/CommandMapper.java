@@ -163,7 +163,7 @@ public class CommandMapper {
                     i++;
                     break;
                 default:
-                    // Ignore unknown options for this assignment
+                    System.out.println("Unknown option: " + opt);
                     break;
             }
         }
