@@ -1,58 +1,146 @@
-# ===== 0. Fehlerfälle beim Start =====
-log                         # fehlender Username -> Fehler
-logout                      # kein User eingeloggt -> Fehler
-unknown_command             # sollte "Unknown command" ausgeben
+# --- Try command without login: should trigger global "You must log in..." error
+list
 
-# ===== 1. Admin loggt sich ein und legt Bücher an =====
-log admin
-add                         # zu wenige Argumente -> Usage-Hinweis
-add abc BADISBN Author 2020 # ISBN "abc" -> NumberFormatException in add
-add 1111 Dune Herbert 1965
-add 2222 CleanCode Martin 2008
-add 3333 Patterns Gamma 1994
-list                        # alle Bücher anzeigen (alle available)
+# --- Invalid username (contains digits)
+log user123
 
-# ===== 2. search testen (Hilfe, Fehler, Treffer, kein Treffer) =====
-search                      # ohne Filter -> Usage / Hilfe
-search -d notANumber        # ungültiges Jahr -> Fehler
-search -a Herbert           # Suche nach Author Herbert -> sollte Dune finden
-search -t CleanCode -d 2008 # kombinierte Suche -> CleanCode
-search -t UnknownTitle      # kein Ergebnis
-
-# ===== 3. check ohne ausgeliehene Bücher =====
-check                       # keine ausgeliehenen Bücher -> "No borrowed books ..."
-
-# ===== 4. Admin leiht Buch 1 aus, verlängert, gibt zurück =====
-borrow 1                    # admin leiht Buch 1
-check                       # admin sieht geliehenes Buch
-extend 1                    # einmal verlängern -> ok
-check -b                    # nur exceeded Bücher -> sollte Buch 1 zeigen
-extend 1                    # zweites Extend -> Fehler (already extended)
-return 1                    # zurückgeben
-return 1                    # nochmal zurückgeben -> Fehler (nicht ausgeliehen)
-
-# ===== 5. Admin loggt aus, Alice versucht Aktionen ohne Rechte =====
-logout
-borrow 2                    # kein User eingeloggt -> Fehler
+# --- Login as normal user
 log alice
-remove 2                    # nicht admin -> Fehler
-borrow 2                    # Alice leiht Buch 2
-check                       # Alice sieht nur ihr eigenes geliehenes Buch
-extend 2                    # Alice verlängert Buch 2
-logout
 
-# ===== 6. Bob versucht Buch von Alice zurückzugeben (falscher Borrower) =====
-log bob
-return 2                    # Buch 2 gehört Alice -> "borrowed by another user"
-logout
-
-# ===== 7. Admin räumt auf und entfernt Bücher =====
+# --- Try to log again while already logged in
 log admin
-check                       # admin sieht ausgeliehenes Buch 2 (Alice)
-remove 99                   # ID existiert nicht -> "No book found"
-remove 3                    # Buch 3 wird gelöscht
-list                        # zeigt nur noch Buch 1 (frei) und Buch 2 (geliehen)
+
+# --- List as normal user when no books exist yet
+list
+
+# --- Logout alice
 logout
 
-# ===== 8. Nochmal unbekannter Befehl zum Abschluss =====
-foo bar                     # Unknown command
+# --- Try logout again without being logged in (should hit global login error)
+logout
+
+# --- Login as admin
+log admin
+
+# --- ADD: missing required option (-i missing)
+add -t Book1 -a Author1 -d 2000
+
+# --- ADD: invalid year format
+add -t Book1 -a Author1 -d year2000 -i 111
+
+# --- ADD: invalid ISBN format
+add -t Book1 -a Author1 -d 2000 -i abc
+
+# --- ADD: invalid copies number (0)
+add -t Book1 -a Author1 -d 2000 -i 111 -n 0
+
+# --- ADD: invalid copies number (not a number)
+add -t Book1 -a Author1 -d 2000 -i 111 -n X
+
+# --- ADD: valid, 1 copy -> should register as ID 1
+add -t Book1 -a Author1 -d 2000 -i 111
+
+# --- ADD: valid, multiple copies (3) -> should register as IDs 2 3 4
+add -t Book2 -a Author2 -d 2010 -i 222 -n 3
+
+# --- LIST: as admin, all books
+list -all
+
+# --- LIST: only available books
+list -av
+
+# --- BORROW: admin borrows book with ID 2
+borrow 2
+
+# --- BORROW: admin borrows book with ID 3
+borrow 3
+
+# --- LIST: only borrowed books
+list -br
+
+# --- SEARCH: no filters -> prints usage and available filters
+search
+
+# --- SEARCH: by title
+search -t Book2
+
+# --- SEARCH: by author and year, no result expected
+search -a Author2 -d 1999
+
+# --- SEARCH: invalid year in filter
+search -d ABC
+
+# --- CHECK: as admin, list all borrowed books
+check -all
+
+# --- CHECK: as admin, list only exceeded loans (none exceeded yet)
+check -b
+
+# --- EXTEND: extend loan for book 2 (first time, should succeed)
+extend 2
+
+# --- EXTEND: extend loan for book 2 again (should hit "Extension limit reached")
+extend 2
+
+# --- CHECK: as admin, now -b should show book 2 as exceeded
+check -b
+
+# --- Logout admin
+logout
+
+# --- Login as normal user bob
+log bob
+
+# --- ADD: bob is not admin
+add -t X -a Y -d 2001 -i 333
+
+# --- BORROW: bob borrows available book 1
+borrow 1
+
+# --- BORROW: non-existing ID
+borrow 99
+
+# --- BORROW: book 1 already borrowed by bob
+borrow 1
+
+# --- CHECK: as bob, list his borrowed books
+check -all
+
+# --- EXTEND: try to extend book 3 which is borrowed by admin
+extend 3
+
+# --- EXTEND: non-existing book ID
+extend 99
+
+# --- EXTEND: bob extends his own book 1 (first time, should succeed)
+extend 1
+
+# --- CHECK: as bob, list only exceeded loans
+check -b
+
+# --- RETURN: bob returns book 1
+return 1
+
+# --- RETURN: bob tries to return book 1 again (not currently borrowed)
+return 1
+
+# --- RETURN: bob tries to return book 2 (borrowed by admin)
+return 2
+
+# --- LIST: as bob, list all books and see current state
+list -all
+
+# --- Logout bob
+logout
+
+# --- Login as admin again
+log admin
+
+# --- REMOVE: remove IDs 2 and 4 (existing) and 10 (non-existing)
+remove 2 4 10
+
+# --- LIST: as admin, see remaining books
+list -all
+
+# --- Final logout
+logout

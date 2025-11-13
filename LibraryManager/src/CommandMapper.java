@@ -1,4 +1,6 @@
 import java.sql.Date;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.List;
 
 public class CommandMapper {
@@ -19,12 +21,18 @@ public class CommandMapper {
 
         line = line.trim();
         if (line.isEmpty() || line.startsWith("#")) {
-            // ignore empty lines and comments
+            // Ignore empty lines and comments in input file
             return;
         }
 
         String[] parts = line.split("\\s+");
         String command = parts[0];
+
+        // Global rule: if not logged in, only 'log' is allowed
+        if (!"log".equals(command) && !library.hasLoggedInUser()) {
+            System.out.println("You must log in with: log [USERNAME]");
+            return;
+        }
 
         switch (command) {
             case "log":
@@ -37,7 +45,7 @@ public class CommandMapper {
                 handleAdd(parts);
                 break;
             case "list":
-                handleList();
+                handleList(parts);
                 break;
             case "borrow":
                 handleBorrow(parts);
@@ -62,20 +70,39 @@ public class CommandMapper {
         }
     }
 
+    // -------- Date helper class --------
+
+    private String formatDate(Date date) {
+        if (date == null) {
+            return "";
+        }
+        SimpleDateFormat df = new SimpleDateFormat("dd/MM/yyyy");
+        return df.format(date);
+    }
+
     // -------- log / logout --------
 
     private void handleLog(String[] parts) {
+        // Missing username
         if (parts.length < 2) {
-            System.out.println("Missing username for log command.");
+            System.out.println("Invalid username format");
             return;
         }
 
+        // User already logged in check
         if (library.hasLoggedInUser()) {
-            System.out.println("A user is already logged in.");
+            System.out.println("User already logged in");
             return;
         }
 
         String username = parts[1];
+
+        // Invalid characters (only letters are allowed here)
+        if (!username.matches("[A-Za-z]+")) {
+            System.out.println("Invalid username format");
+            return;
+        }
+
         User user;
         if ("admin".equals(username)) {
             user = new Administrator(username);
@@ -83,116 +110,233 @@ public class CommandMapper {
             user = new User(username);
         }
 
+        // User successfully logged in
         library.setCurrentUser(user);
-        System.out.println("You are logged in as " + username + ".");
+        System.out.println("You are log as " + username);
     }
 
     private void handleLogout() {
-        if (!library.hasLoggedInUser()) {
-            System.out.println("No user is currently logged in.");
-            return;
-        }
-
-        String name = library.getCurrentUser().getUsername();
+        // If this is reached, a user is logged in (global check in processLine)
         library.setCurrentUser(null);
-        System.out.println("User " + name + " logged out.");
+        System.out.println("You are logged out.");
     }
 
     // -------- add / remove --------
 
     private void handleAdd(String[] parts) {
-        if (!library.hasLoggedInUser()) {
-            System.out.println("Please log in first.");
-            return;
-        }
+        // Only admin can add books
         if (!library.isCurrentUserAdmin()) {
-            System.out.println("Only admin can add books.");
+            System.out.println("User not authorized");
             return;
         }
 
-        if (parts.length < 5) {
-            System.out.println("Usage: add <ISBN> <TITLE> <AUTHOR> <YEAR>");
+        String title = null;
+        String author = null;
+        String yearStr = null;
+        String isbnStr = null;
+        String copiesStr = null;
+
+        // Parse options: -t [TITLE] -a [AUTHOR] -d [YEAR] -i [ISBN] -n [COPIES]
+        for (int i = 1; i < parts.length - 1; i++) {
+            String opt = parts[i];
+            String val = parts[i + 1];
+
+            switch (opt) {
+                case "-t":
+                    title = val;
+                    i++;
+                    break;
+                case "-a":
+                    author = val;
+                    i++;
+                    break;
+                case "-d":
+                    yearStr = val;
+                    i++;
+                    break;
+                case "-i":
+                    isbnStr = val;
+                    i++;
+                    break;
+                case "-n":
+                    copiesStr = val;
+                    i++;
+                    break;
+                default:
+                    // Ignore unknown options for this assignment
+                    break;
+            }
+        }
+
+        if (title == null || author == null || yearStr == null || isbnStr == null) {
+            System.out.println("Missing required option: -t, -a, -d, or -i");
             return;
         }
 
+        int year;
         try {
-            int isbn = Integer.parseInt(parts[1]);
-            String title = parts[2];
-            String author = parts[3];
-            int year = Integer.parseInt(parts[4]);
-
-            Book book = library.addSingleBook(isbn, title, author, year);
-            System.out.println("Book added with ID " + book.getID() + ".");
-
+            year = Integer.parseInt(yearStr);
         } catch (NumberFormatException e) {
-            System.out.println("Invalid number format in add command.");
+            System.out.println("Invalid year format");
+            return;
+        }
+
+        int isbn;
+        try {
+            isbn = Integer.parseInt(isbnStr);
+        } catch (NumberFormatException e) {
+            System.out.println("Invalid ISBN format");
+            return;
+        }
+
+        int copies = 1;
+        if (copiesStr != null) {
+            try {
+                copies = Integer.parseInt(copiesStr);
+                if (copies <= 0) {
+                    System.out.println("Invalid copies number");
+                    return;
+                }
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid copies number");
+                return;
+            }
+        }
+        /*
+         * Spec: if a book with the same ISBN exists, add copies to the existing
+         * entry. In this implementation each copy is represented as its own Book with a
+         * unique ID.
+         */
+
+        if (copies == 1) {
+            Book book = library.addSingleBook(isbn, title, author, year);
+            System.out.println("The book is registered as " + book.getID() + ".");
+        } else {
+            StringBuilder ids = new StringBuilder();
+            for (int c = 0; c < copies; c++) {
+                Book book = library.addSingleBook(isbn, title, author, year);
+                if (c > 0) {
+                    ids.append(" ");
+                }
+                ids.append(book.getID());
+            }
+            System.out.println("The books are registered as " + ids.toString() + ".");
         }
     }
 
     private void handleRemove(String[] parts) {
-        if (!library.hasLoggedInUser()) {
-            System.out.println("Please log in first.");
-            return;
-        }
+        // Only admin can remove books
         if (!library.isCurrentUserAdmin()) {
-            System.out.println("Only admin can remove books.");
+            System.out.println("User not authorized");
             return;
         }
 
         if (parts.length < 2) {
-            System.out.println("Usage: remove <ID>");
+            // No IDs given
             return;
         }
 
-        try {
-            int id = Integer.parseInt(parts[1]);
-            boolean removed = library.removeBook(id);
-            if (removed) {
-                System.out.println("Book with ID " + id + " removed.");
-            } else {
-                System.out.println("No book found with ID " + id + ".");
+        List<Integer> removed = new ArrayList<>();
+        List<Integer> notFound = new ArrayList<>();
+
+        for (int i = 1; i < parts.length; i++) {
+            try {
+                int id = Integer.parseInt(parts[i]);
+                boolean ok = library.removeBook(id);
+                if (ok) {
+                    removed.add(id);
+                } else {
+                    notFound.add(id);
+                }
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid ID format in remove command: " + parts[i]);
             }
-        } catch (NumberFormatException e) {
-            System.out.println("Invalid ID format in remove command.");
+        }
+
+        if (!removed.isEmpty()) {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < removed.size(); i++) {
+                if (i > 0)
+                    sb.append(" ");
+                sb.append(removed.get(i));
+            }
+            System.out.println("The following books were removed: " + sb.toString() + ".");
+        }
+
+        if (!notFound.isEmpty()) {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < notFound.size(); i++) {
+                if (i > 0)
+                    sb.append(" ");
+                sb.append(notFound.get(i));
+            }
+            System.out.println("The following IDs do not exist: " + sb.toString() + ".");
         }
     }
 
     // -------- list --------
 
-    private void handleList() {
+    private void handleList(String[] parts) {
+        String option = "-all"; // Default option
+
+        if (parts.length >= 2) {
+            option = parts[1];
+        }
+
         List<Book> books = library.getAllBooks();
         if (books.isEmpty()) {
             System.out.println("No books in library.");
             return;
         }
 
-        for (Book b : books) {
-            String status;
-            if (b.isAvailable()) {
-                status = "available";
-            } else {
-                User borrower = b.getBorrower();
-                Date limit = b.getLimitReturnDate();
-                status = "borrowed by " + borrower.getUsername()
-                        + " until " + limit;
-            }
+        boolean admin = library.isCurrentUserAdmin();
 
-            System.out.println(
-                    b.getID() + " - " + b.getTitle() + " (" +
-                            b.getAuthor() + ", " + b.getYearPublished() +
-                            ") [" + status + "]");
+        for (Book b : books) {
+            boolean available = b.isAvailable();
+
+            if ("-av".equals(option) || "-available".equals(option)) {
+                if (!available) {
+                    continue;
+                }
+            } else if ("-br".equals(option) || "-borrowed".equals(option)) {
+                if (available) {
+                    continue;
+                }
+            } // "-all" or unknown option: show all
+
+            if (!admin) {
+                // Regular user: ID, title, author, year
+                System.out.println(
+                        b.getID() + "\t" +
+                                b.getTitle() + "\t" +
+                                b.getAuthor() + "\t" +
+                                b.getYearPublished());
+            } else {
+                // Admin: for borrowed books additionally borrower + limit date
+                if (available) {
+                    System.out.println(
+                            b.getID() + "\t" +
+                                    b.getTitle() + "\t" +
+                                    b.getAuthor() + "\t" +
+                                    b.getYearPublished());
+                } else {
+                    System.out.println(
+                            b.getID() + "\t" +
+                                    b.getTitle() + "\t" +
+                                    b.getAuthor() + "\t" +
+                                    b.getYearPublished() + "\t" +
+                                    b.getBorrower().getUsername() + "\t" +
+                                    formatDate(b.getLimitReturnDate()));
+                }
+            }
         }
     }
 
     // -------- borrow / return / extend --------
 
     private void handleBorrow(String[] parts) {
-        if (!library.hasLoggedInUser()) {
-            System.out.println("Please log in first.");
-            return;
-        }
         if (parts.length < 2) {
-            System.out.println("Usage: borrow <ID>");
+            System.out.println("Usage: borrow [ID]");
             return;
         }
 
@@ -211,7 +355,7 @@ public class CommandMapper {
             library.borrowBook(id);
             System.out.println("Book " + id + " borrowed by "
                     + library.getCurrentUser().getUsername()
-                    + " until " + book.getLimitReturnDate() + ".");
+                    + " until " + formatDate(book.getLimitReturnDate()) + ".");
 
         } catch (NumberFormatException e) {
             System.out.println("Invalid ID format in borrow command.");
@@ -219,12 +363,8 @@ public class CommandMapper {
     }
 
     private void handleReturn(String[] parts) {
-        if (!library.hasLoggedInUser()) {
-            System.out.println("Please log in first.");
-            return;
-        }
         if (parts.length < 2) {
-            System.out.println("Usage: return <ID>");
+            System.out.println("Usage: return [ID]");
             return;
         }
 
@@ -254,12 +394,8 @@ public class CommandMapper {
     }
 
     private void handleExtend(String[] parts) {
-        if (!library.hasLoggedInUser()) {
-            System.out.println("Please log in first.");
-            return;
-        }
         if (parts.length < 2) {
-            System.out.println("Usage: extend <ID>");
+            System.out.println("Usage: extend [ID]");
             return;
         }
 
@@ -267,26 +403,26 @@ public class CommandMapper {
             int id = Integer.parseInt(parts[1]);
             Book book = library.getBookById(id);
             if (book == null) {
-                System.out.println("No book found with ID " + id + ".");
+                System.out.println("Book not found");
                 return;
             }
             if (book.isAvailable()) {
-                System.out.println("Book " + id + " is not currently borrowed.");
+                System.out.println("Book not found");
                 return;
             }
             if (!book.getBorrower().getUsername()
                     .equals(library.getCurrentUser().getUsername())) {
-                System.out.println("Book " + id + " is borrowed by another user.");
+                System.out.println("Unauthorized: You are not the borrower");
                 return;
             }
             if (book.isExceeded()) {
-                System.out.println("Loan for book " + id + " was already extended once.");
+                System.out.println("Extension limit reached");
                 return;
             }
 
             library.extendLoan(id);
-            System.out.println("Loan for book " + id + " extended until "
-                    + book.getLimitReturnDate() + ".");
+            System.out.println("Loan extended. New limit date: "
+                    + formatDate(book.getLimitReturnDate()));
 
         } catch (NumberFormatException e) {
             System.out.println("Invalid ID format in extend command.");
@@ -296,14 +432,12 @@ public class CommandMapper {
     // -------- check --------
 
     private void handleCheck(String[] parts) {
-        if (!library.hasLoggedInUser()) {
-            System.out.println("Please log in first.");
-            return;
-        }
+        boolean onlyExceeded = false; // Default is -all
 
-        boolean onlyExceeded = false;
-        if (parts.length >= 2 && "-b".equals(parts[1])) {
-            onlyExceeded = true;
+        if (parts.length >= 2) {
+            if ("-b".equals(parts[1])) {
+                onlyExceeded = true;
+            }
         }
 
         List<Book> books = library.getAllBooks();
@@ -317,28 +451,37 @@ public class CommandMapper {
         boolean anyPrinted = false;
 
         for (Book b : books) {
+            // Skip available books
             if (b.isAvailable()) {
-                continue; // nur ausgeliehene Bücher
+                continue;
             }
 
-            // für normale User nur eigene Bücher
+            // For normal users only show books borrowed by themselves
             if (!admin && (b.getBorrower() == null ||
                     !b.getBorrower().getUsername().equals(current.getUsername()))) {
                 continue;
             }
 
-            // -b: nur exceeded
+            // For -b, only show books with exceeded loans
             if (onlyExceeded && !b.isExceeded()) {
                 continue;
             }
 
             anyPrinted = true;
-            System.out.println(
-                    b.getID() + "\t" +
-                            b.getISBN() + "\t" +
-                            b.getTitle() + "\t" +
-                            b.getBorrower().getUsername() + "\t" +
-                            b.getLimitReturnDate());
+            if (admin) {
+                System.out.println(
+                        b.getID() + "\t" +
+                                b.getISBN() + "\t" +
+                                b.getTitle() + "\t" +
+                                b.getBorrower().getUsername() + "\t" +
+                                formatDate(b.getLimitReturnDate()));
+            } else {
+                System.out.println(
+                        b.getID() + "\t" +
+                                b.getISBN() + "\t" +
+                                b.getTitle() + "\t" +
+                                formatDate(b.getLimitReturnDate()));
+            }
         }
 
         if (!anyPrinted) {
@@ -346,7 +489,7 @@ public class CommandMapper {
         }
     }
 
-        // -------- search --------
+    // -------- search --------
 
     private void handleSearch(String[] parts) {
         if (parts.length == 1) {
@@ -362,7 +505,7 @@ public class CommandMapper {
         String authorFilter = null;
         Integer yearFilter = null;
 
-        // Optionen paarweise lesen: -t value, -a value, -d value ...
+        // Read options in pairs: -t value, -a value, -d value ...
         for (int i = 1; i < parts.length - 1; i += 2) {
             String opt = parts[i];
             String val = parts[i + 1];
@@ -408,11 +551,10 @@ public class CommandMapper {
             anyPrinted = true;
             System.out.println(
                     b.getID() + "\t" +
-                    b.getISBN() + "\t" +
-                    b.getTitle() + "\t" +
-                    b.getAuthor() + "\t" +
-                    b.getYearPublished()
-            );
+                            b.getISBN() + "\t" +
+                            b.getTitle() + "\t" +
+                            b.getAuthor() + "\t" +
+                            b.getYearPublished());
         }
 
         if (!anyPrinted) {

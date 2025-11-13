@@ -4,7 +4,7 @@ import java.io.IOException;
 
 public class Main {
     public static void main(String[] args) {
-        String inputFile = "Verification-and-Validation-\\LibraryManager\\src\\library_manager.txt";
+        String inputFile = "LibraryManager\\src\\library_manager.txt";
         Library library = new Library();
         CommandMapper commandMapper = new CommandMapper(library);
 
