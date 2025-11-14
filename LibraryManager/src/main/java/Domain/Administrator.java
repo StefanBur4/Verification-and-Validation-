@@ -1,3 +1,5 @@
+package Domain;
+
 public class Administrator extends User {
 
     public Administrator(String username) {

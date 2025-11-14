@@ -1,10 +1,13 @@
+import Domain.Library;
+import Mapper.CommandMapper;
+
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 
 public class Main {
     public static void main(String[] args) {
-        String inputFile = "LibraryManager\\src\\library_manager.txt";
+        String inputFile = "src\\main\\resources\\library_manager.txt";
         Library library = new Library();
         CommandMapper commandMapper = new CommandMapper(library);
 

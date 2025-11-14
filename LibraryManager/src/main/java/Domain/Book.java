@@ -1,3 +1,5 @@
+package Domain;
+
 import java.sql.Date;
 
 public class Book {
