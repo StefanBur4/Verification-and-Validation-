@@ -1,6 +1,5 @@
 package Domain;
 
-import java.sql.Date;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -11,8 +10,6 @@ public class Library {
     private int nextId = 1;
 
     private User currentUser;
-
-    private static final int LOAN_DAYS = 7;
 
     // ------------ User administration ------------
 
@@ -76,9 +73,7 @@ public class Library {
      */
     public void borrowBook(int id) {
         Book book = getBookById(id);
-
-        Date limitDate = addDays(new Date(System.currentTimeMillis()), LOAN_DAYS);
-        book.borrow(currentUser, limitDate);
+        book.borrow(currentUser);
     }
 
     /* Set a book state to not borrowed */
@@ -90,18 +85,6 @@ public class Library {
     /* Extend the loan of a book by another seven days */
     public void extendLoan(int id) {
         Book book = getBookById(id);
-        Date currentLimit = book.getLimitReturnDate();
-
-        Date newLimit = addDays(currentLimit, LOAN_DAYS);
-        book.extendLoan(newLimit);
-    }
-
-    // -------- Helper method for date calculations --------
-
-    /* Adds a specified number of days to a given date */
-    private Date addDays(Date base, int days) {
-        long millisPerDay = 24L * 60L * 60L * 1000L;
-        long newTime = base.getTime() + days * millisPerDay;
-        return new Date(newTime);
+        book.extendLoan();
     }
 }

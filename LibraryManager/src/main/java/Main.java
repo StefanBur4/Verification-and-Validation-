@@ -7,7 +7,12 @@ import java.io.IOException;
 
 public class Main {
     public static void main(String[] args) {
-        String inputFile = "src\\main\\resources\\library_manager.txt";
+        // InteliJ input file path
+        /* String inputFile = "src\\main\\resources\\library_manager.txt"; */
+
+        // VSCode input file path
+        String inputFile = "LibraryManager\\src\\main\\resources\\library_manager.txt";
+       
         Library library = new Library();
         CommandMapper commandMapper = new CommandMapper(library);
 

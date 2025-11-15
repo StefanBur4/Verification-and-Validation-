@@ -5,9 +5,6 @@ import Domain.User;
 import Domain.Administrator;
 import Domain.Book;
 
-
-
-
 import java.sql.Date;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -472,9 +469,12 @@ public class CommandMapper {
                 continue;
             }
 
-            // For -b, only show books with exceeded loans
-            if (onlyExceeded && !b.isExceeded()) {
-                continue;
+            // For -b, only show books whose limit date is in the past (overdue)
+            if (onlyExceeded) {
+                Date today = new Date(System.currentTimeMillis());
+                if (b.getLimitReturnDate() == null || !b.getLimitReturnDate().before(today)) {
+                    continue;
+                }
             }
 
             anyPrinted = true;

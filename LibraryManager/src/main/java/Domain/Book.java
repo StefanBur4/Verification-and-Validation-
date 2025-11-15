@@ -63,9 +63,9 @@ public class Book {
     }
 
     /* Changes book to borrowed by a user with a limit return date */
-    public void borrow(User username, Date limitDate) {
+    public void borrow(User username) {
         this.borrower = username;
-        this.limitReturnDate = limitDate;
+        this.limitReturnDate = addDays(new Date(System.currentTimeMillis()), 7);
         this.isExceeded = false;
     }
 
@@ -77,8 +77,18 @@ public class Book {
     }
 
     /* Extends the loan limit date and marks the book as exceeded */
-    public void extendLoan(Date newLimitDate) {
-        this.limitReturnDate = newLimitDate;
+    public void extendLoan() {
+        if (this.limitReturnDate == null) {
+            return; // Cannot extend loan if the book is not borrowed
+        }
+        this.limitReturnDate = addDays(this.limitReturnDate, 7);
         this.isExceeded = true;
+    }
+
+    /* Helper method to add days to a date */
+    private Date addDays(Date date, int days) {
+        long millis = date.getTime();
+        long addedMillis = days * 24L * 60 * 60 * 1000;
+        return new Date(millis + addedMillis);
     }
 }
