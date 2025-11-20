@@ -967,4 +967,5 @@ public class CommandMapperTest {
 
         assertFalse(isAdmin);
     }
+
 }

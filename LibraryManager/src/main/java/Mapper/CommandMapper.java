@@ -464,8 +464,7 @@ public class CommandMapper {
             }
 
             // For normal users only show books borrowed by themselves
-            if (!admin && (b.getBorrower() == null ||
-                    !b.getBorrower().getUsername().equals(current.getUsername()))) {
+            if (!admin && !b.getBorrower().getUsername().equals(current.getUsername())) {
                 continue;
             }
 
