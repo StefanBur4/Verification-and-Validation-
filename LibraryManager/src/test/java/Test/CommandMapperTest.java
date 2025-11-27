@@ -26,7 +26,7 @@ public class CommandMapperTest {
     @BeforeEach
     void setUp() {
         library = new Library();
-        mapper = new CommandMapper(library);
+        mapper = new CommandMapper(library, originalOut);
 
         originalOut = System.out;
         System.setOut(new PrintStream(outContent));

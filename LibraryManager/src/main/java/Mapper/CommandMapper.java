@@ -5,6 +5,7 @@ import Domain.User;
 import Domain.Administrator;
 import Domain.Book;
 
+import java.io.PrintStream;
 import java.sql.Date;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -13,9 +14,11 @@ import java.util.List;
 public class CommandMapper {
 
     private final Library library;
+    private final PrintStream out;
 
-    public CommandMapper(Library library) {
+    public CommandMapper(Library library, PrintStream out) {
         this.library = library;
+        this.out = out;
     }
 
     /*
@@ -37,7 +40,7 @@ public class CommandMapper {
 
         // Global rule: if not logged in, only 'log' is allowed
         if (!"log".equals(command) && !library.hasLoggedInUser()) {
-            System.out.println("You must log in with: log [USERNAME]");
+            out.println("You must log in with: log [USERNAME]");
             return;
         }
 
@@ -73,7 +76,7 @@ public class CommandMapper {
                 handleSearch(parts);
                 break;
             default:
-                System.out.println("Unknown command: " + command);
+                out.println("Unknown command: " + command);
         }
     }
 
@@ -92,13 +95,13 @@ public class CommandMapper {
     private void handleLog(String[] parts) {
         // Missing username
         if (parts.length < 2) {
-            System.out.println("Invalid username format");
+            out.println("Invalid username format");
             return;
         }
 
         // User already logged in check
         if (library.hasLoggedInUser()) {
-            System.out.println("User already logged in");
+            out.println("User already logged in");
             return;
         }
 
@@ -106,7 +109,7 @@ public class CommandMapper {
 
         // Invalid characters (only letters are allowed here)
         if (!username.matches("[A-Za-z]+")) {
-            System.out.println("Invalid username format");
+            out.println("Invalid username format");
             return;
         }
 
@@ -119,13 +122,13 @@ public class CommandMapper {
 
         // User successfully logged in
         library.setCurrentUser(user);
-        System.out.println("You are log as " + username);
+        out.println("You are log as " + username);
     }
 
     private void handleLogout() {
         // If this is reached, a user is logged in (global check in processLine)
         library.setCurrentUser(null);
-        System.out.println("You are logged out.");
+        out.println("You are logged out.");
     }
 
     // -------- add / remove --------
@@ -133,7 +136,7 @@ public class CommandMapper {
     private void handleAdd(String[] parts) {
         // Only admin can add books
         if (!library.isCurrentUserAdmin()) {
-            System.out.println("User not authorized");
+            out.println("User not authorized");
             return;
         }
 
@@ -170,13 +173,13 @@ public class CommandMapper {
                     i++;
                     break;
                 default:
-                    System.out.println("Unknown option: " + opt);
+                    out.println("Unknown option: " + opt);
                     break;
             }
         }
 
         if (title == null || author == null || yearStr == null || isbnStr == null) {
-            System.out.println("Missing required option: -t, -a, -d, or -i");
+            out.println("Missing required option: -t, -a, -d, or -i");
             return;
         }
 
@@ -184,7 +187,7 @@ public class CommandMapper {
         try {
             year = Integer.parseInt(yearStr);
         } catch (NumberFormatException e) {
-            System.out.println("Invalid year format");
+            out.println("Invalid year format");
             return;
         }
 
@@ -192,7 +195,7 @@ public class CommandMapper {
         try {
             isbn = Integer.parseInt(isbnStr);
         } catch (NumberFormatException e) {
-            System.out.println("Invalid ISBN format");
+            out.println("Invalid ISBN format");
             return;
         }
 
@@ -201,11 +204,11 @@ public class CommandMapper {
             try {
                 copies = Integer.parseInt(copiesStr);
                 if (copies <= 0) {
-                    System.out.println("Invalid copies number");
+                    out.println("Invalid copies number");
                     return;
                 }
             } catch (NumberFormatException e) {
-                System.out.println("Invalid copies number");
+                out.println("Invalid copies number");
                 return;
             }
         }
@@ -217,7 +220,7 @@ public class CommandMapper {
 
         if (copies == 1) {
             Book book = library.addSingleBook(isbn, title, author, year);
-            System.out.println("The book is registered as " + book.getID() + ".");
+            out.println("The book is registered as " + book.getID() + ".");
         } else {
             StringBuilder ids = new StringBuilder();
             for (int c = 0; c < copies; c++) {
@@ -227,14 +230,14 @@ public class CommandMapper {
                 }
                 ids.append(book.getID());
             }
-            System.out.println("The books are registered as " + ids.toString() + ".");
+            out.println("The books are registered as " + ids.toString() + ".");
         }
     }
 
     private void handleRemove(String[] parts) {
         // Only admin can remove books
         if (!library.isCurrentUserAdmin()) {
-            System.out.println("User not authorized");
+            out.println("User not authorized");
             return;
         }
 
@@ -256,7 +259,7 @@ public class CommandMapper {
                     notFound.add(id);
                 }
             } catch (NumberFormatException e) {
-                System.out.println("Invalid ID format in remove command: " + parts[i]);
+                out.println("Invalid ID format in remove command: " + parts[i]);
             }
         }
 
@@ -267,7 +270,7 @@ public class CommandMapper {
                     sb.append(" ");
                 sb.append(removed.get(i));
             }
-            System.out.println("The following books were removed: " + sb.toString() + ".");
+            out.println("The following books were removed: " + sb.toString() + ".");
         }
 
         if (!notFound.isEmpty()) {
@@ -277,7 +280,7 @@ public class CommandMapper {
                     sb.append(" ");
                 sb.append(notFound.get(i));
             }
-            System.out.println("The following IDs do not exist: " + sb.toString() + ".");
+            out.println("The following IDs do not exist: " + sb.toString() + ".");
         }
     }
 
@@ -292,7 +295,7 @@ public class CommandMapper {
 
         List<Book> books = library.getAllBooks();
         if (books.isEmpty()) {
-            System.out.println("No books in library.");
+            out.println("No books in library.");
             return;
         }
 
@@ -313,7 +316,7 @@ public class CommandMapper {
 
             if (!admin) {
                 // Regular user: ID, title, author, year
-                System.out.println(
+                out.println(
                         b.getID() + "\t" +
                                 b.getTitle() + "\t" +
                                 b.getAuthor() + "\t" +
@@ -321,13 +324,13 @@ public class CommandMapper {
             } else {
                 // Admin: for borrowed books additionally borrower + limit date
                 if (available) {
-                    System.out.println(
+                    out.println(
                             b.getID() + "\t" +
                                     b.getTitle() + "\t" +
                                     b.getAuthor() + "\t" +
                                     b.getYearPublished());
                 } else {
-                    System.out.println(
+                    out.println(
                             b.getID() + "\t" +
                                     b.getTitle() + "\t" +
                                     b.getAuthor() + "\t" +
@@ -343,7 +346,7 @@ public class CommandMapper {
 
     private void handleBorrow(String[] parts) {
         if (parts.length < 2) {
-            System.out.println("Usage: borrow [ID]");
+            out.println("Usage: borrow [ID]");
             return;
         }
 
@@ -351,27 +354,27 @@ public class CommandMapper {
             int id = Integer.parseInt(parts[1]);
             Book book = library.getBookById(id);
             if (book == null) {
-                System.out.println("No book found with ID " + id + ".");
+                out.println("No book found with ID " + id + ".");
                 return;
             }
             if (!book.isAvailable()) {
-                System.out.println("Book " + id + " is already borrowed.");
+                out.println("Book " + id + " is already borrowed.");
                 return;
             }
 
             library.borrowBook(id);
-            System.out.println("Book " + id + " borrowed by "
+            out.println("Book " + id + " borrowed by "
                     + library.getCurrentUser().getUsername()
                     + " until " + formatDate(book.getLimitReturnDate()) + ".");
 
         } catch (NumberFormatException e) {
-            System.out.println("Invalid ID format in borrow command.");
+            out.println("Invalid ID format in borrow command.");
         }
     }
 
     private void handleReturn(String[] parts) {
         if (parts.length < 2) {
-            System.out.println("Usage: return [ID]");
+            out.println("Usage: return [ID]");
             return;
         }
 
@@ -379,30 +382,30 @@ public class CommandMapper {
             int id = Integer.parseInt(parts[1]);
             Book book = library.getBookById(id);
             if (book == null) {
-                System.out.println("No book found with ID " + id + ".");
+                out.println("No book found with ID " + id + ".");
                 return;
             }
             if (book.isAvailable()) {
-                System.out.println("Book " + id + " is not currently borrowed.");
+                out.println("Book " + id + " is not currently borrowed.");
                 return;
             }
             User borrower = book.getBorrower();
             if (!borrower.getUsername().equals(library.getCurrentUser().getUsername())) {
-                System.out.println("Book " + id + " is borrowed by another user.");
+                out.println("Book " + id + " is borrowed by another user.");
                 return;
             }
 
             library.returnBook(id);
-            System.out.println("Book " + id + " returned.");
+            out.println("Book " + id + " returned.");
 
         } catch (NumberFormatException e) {
-            System.out.println("Invalid ID format in return command.");
+            out.println("Invalid ID format in return command.");
         }
     }
 
     private void handleExtend(String[] parts) {
         if (parts.length < 2) {
-            System.out.println("Usage: extend [ID]");
+            out.println("Usage: extend [ID]");
             return;
         }
 
@@ -410,29 +413,29 @@ public class CommandMapper {
             int id = Integer.parseInt(parts[1]);
             Book book = library.getBookById(id);
             if (book == null) {
-                System.out.println("Book not found");
+                out.println("Book not found");
                 return;
             }
             if (book.isAvailable()) {
-                System.out.println("Book not found");
+                out.println("Book not found");
                 return;
             }
             if (!book.getBorrower().getUsername()
                     .equals(library.getCurrentUser().getUsername())) {
-                System.out.println("Unauthorized: You are not the borrower");
+                out.println("Unauthorized: You are not the borrower");
                 return;
             }
             if (book.isExceeded()) {
-                System.out.println("Extension limit reached");
+                out.println("Extension limit reached");
                 return;
             }
 
             library.extendLoan(id);
-            System.out.println("Loan extended. New limit date: "
+            out.println("Loan extended. New limit date: "
                     + formatDate(book.getLimitReturnDate()));
 
         } catch (NumberFormatException e) {
-            System.out.println("Invalid ID format in extend command.");
+            out.println("Invalid ID format in extend command.");
         }
     }
 
@@ -449,7 +452,7 @@ public class CommandMapper {
 
         List<Book> books = library.getAllBooks();
         if (books.isEmpty()) {
-            System.out.println("No books in library.");
+            out.println("No books in library.");
             return;
         }
 
@@ -478,14 +481,14 @@ public class CommandMapper {
 
             anyPrinted = true;
             if (admin) {
-                System.out.println(
+                out.println(
                         b.getID() + "\t" +
                                 b.getISBN() + "\t" +
                                 b.getTitle() + "\t" +
                                 b.getBorrower().getUsername() + "\t" +
                                 formatDate(b.getLimitReturnDate()));
             } else {
-                System.out.println(
+                out.println(
                         b.getID() + "\t" +
                                 b.getISBN() + "\t" +
                                 b.getTitle() + "\t" +
@@ -494,7 +497,7 @@ public class CommandMapper {
         }
 
         if (!anyPrinted) {
-            System.out.println("No borrowed books found for this filter.");
+            out.println("No borrowed books found for this filter.");
         }
     }
 
@@ -502,11 +505,11 @@ public class CommandMapper {
 
     private void handleSearch(String[] parts) {
         if (parts.length == 1) {
-            System.out.println("Usage: search [FILTERS]");
-            System.out.println("Filters:");
-            System.out.println("  -t [TITLE]   or -title [TITLE]");
-            System.out.println("  -a [AUTHOR]  or -author [AUTHOR]");
-            System.out.println("  -d [YEAR]    or -date [YEAR]");
+            out.println("Usage: search [FILTERS]");
+            out.println("Filters:");
+            out.println("  -t [TITLE]   or -title [TITLE]");
+            out.println("  -a [AUTHOR]  or -author [AUTHOR]");
+            out.println("  -d [YEAR]    or -date [YEAR]");
             return;
         }
 
@@ -533,12 +536,12 @@ public class CommandMapper {
                     try {
                         yearFilter = Integer.parseInt(val);
                     } catch (NumberFormatException e) {
-                        System.out.println("Invalid year in search filter: " + val);
+                        out.println("Invalid year in search filter: " + val);
                         return;
                     }
                     break;
                 default:
-                    System.out.println("Unknown search option: " + opt);
+                    out.println("Unknown search option: " + opt);
                     return;
             }
         }
@@ -558,7 +561,7 @@ public class CommandMapper {
             }
 
             anyPrinted = true;
-            System.out.println(
+            out.println(
                     b.getID() + "\t" +
                             b.getISBN() + "\t" +
                             b.getTitle() + "\t" +
@@ -567,7 +570,7 @@ public class CommandMapper {
         }
 
         if (!anyPrinted) {
-            System.out.println("No books match the given search filters.");
+            out.println("No books match the given search filters.");
         }
     }
 }
